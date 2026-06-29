@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FFmpeg Studio — Browser-Native Media Processing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <!-- Header -->
+  <header id="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">▶</span>
+        <span class="logo-text">FFmpeg<span class="logo-accent">Studio</span></span>
+        <span class="logo-badge">WASM</span>
+      </div>
+      <nav class="main-nav">
+        <button class="nav-tab active" data-tab="quick">⚡ Quick Convert</button>
+        <button class="nav-tab" data-tab="playground">⌨ Playground</button>
+        <button class="nav-tab" data-tab="editor">✦ Visual Editor</button>
+        <button class="nav-tab" data-tab="code">⟨/⟩ Code Mode</button>
+      </nav>
+      <div class="header-status">
+        <span id="ffmpeg-status" class="status-dot loading">●</span>
+        <span id="ffmpeg-status-text">Loading FFmpeg…</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+
+    <!-- ── TAB: QUICK CONVERT ─────────────────────────────────── -->
+    <section class="tab-panel active" id="tab-quick">
+      <div class="section-header">
+        <h1>Quick Convert</h1>
+        <p>Drop any media file. Pick a preset. Done.</p>
+      </div>
+
+      <div class="quick-grid">
+        <!-- Drop Zone -->
+        <div class="drop-zone" id="quick-drop">
+          <div class="drop-icon">⤓</div>
+          <p class="drop-label">Drop file here</p>
+          <p class="drop-sub">or <label class="link-btn" for="quick-file-input">browse</label></p>
+          <input type="file" id="quick-file-input" accept="video/*,audio/*,image/*" hidden/>
+          <div id="quick-file-info" class="file-info hidden"></div>
+        </div>
+
+        <!-- Preset Grid -->
+        <div class="presets-panel">
+          <h2 class="panel-title">Conversion Presets</h2>
+          <div class="preset-categories">
+            <button class="cat-btn active" data-cat="video">Video</button>
+            <button class="cat-btn" data-cat="audio">Audio</button>
+            <button class="cat-btn" data-cat="image">Image</button>
+            <button class="cat-btn" data-cat="compress">Compress</button>
+          </div>
+          <div class="preset-grid" id="preset-grid">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Options + Output -->
+        <div class="options-panel">
+          <h2 class="panel-title">Options</h2>
+          <div class="option-row">
+            <label>Output filename</label>
+            <input type="text" id="quick-outname" class="code-input" placeholder="output.mp4"/>
+          </div>
+          <div class="option-row">
+            <label>Quality / CRF</label>
+            <div class="slider-wrap">
+              <input type="range" id="quick-crf" min="0" max="51" value="23"/>
+              <span id="quick-crf-val">23</span>
+            </div>
+          </div>
+          <div class="option-row">
+            <label>Scale (width)</label>
+            <select id="quick-scale" class="code-select">
+              <option value="">Original</option>
+              <option value="3840">4K (3840)</option>
+              <option value="1920">1080p (1920)</option>
+              <option value="1280">720p (1280)</option>
+              <option value="854">480p (854)</option>
+              <option value="640">360p (640)</option>
+            </select>
+          </div>
+          <div class="option-row">
+            <label>Trim start</label>
+            <input type="text" id="quick-ss" class="code-input" placeholder="00:00:00"/>
+          </div>
+          <div class="option-row">
+            <label>Trim duration</label>
+            <input type="text" id="quick-t" class="code-input" placeholder="e.g. 30"/>
+          </div>
+          <div class="generated-cmd-box">
+            <span class="cmd-label">Generated command</span>
+            <code id="quick-generated-cmd">ffmpeg -i input …</code>
+          </div>
+          <button class="run-btn" id="quick-run-btn" disabled>
+            <span>▶ Run Conversion</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Progress & Log -->
+      <div class="progress-section" id="quick-progress-section" style="display:none">
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" id="quick-progress-bar"></div>
+          <span class="progress-pct" id="quick-progress-pct">0%</span>
+        </div>
+        <div class="log-box" id="quick-log"></div>
+        <div class="output-preview" id="quick-output-preview"></div>
+      </div>
+    </section>
+
+    <!-- ── TAB: PLAYGROUND ────────────────────────────────────── -->
+    <section class="tab-panel" id="tab-playground">
+      <div class="section-header">
+        <h1>FFmpeg Playground</h1>
+        <p>Run any FFmpeg command directly in your browser.</p>
+      </div>
+
+      <div class="playground-layout">
+        <!-- File Manager -->
+        <aside class="file-manager">
+          <h3>Virtual FS</h3>
+          <div class="vfs-drop" id="pg-drop">
+            <span>+ Add Files</span>
+            <input type="file" id="pg-file-input" multiple hidden/>
+          </div>
+          <ul class="vfs-list" id="pg-file-list"></ul>
+        </aside>
+
+        <!-- Command Area -->
+        <div class="command-area">
+          <div class="cmd-toolbar">
+            <span class="cmd-prompt">$</span>
+            <input type="text" id="pg-cmd-input" class="cmd-input"
+              placeholder="ffmpeg -i input.mp4 -vf scale=1280:720 output.mp4"
+              spellcheck="false" autocomplete="off"/>
+            <button class="icon-btn" id="pg-run-btn" title="Run (Ctrl+Enter)">▶</button>
+            <button class="icon-btn" id="pg-clear-btn" title="Clear log">✕</button>
+          </div>
+
+          <!-- Snippet Library -->
+          <div class="snippets-bar">
+            <span class="snippets-label">Snippets:</span>
+            <div class="snippets-scroll" id="snippets-scroll">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Terminal Log -->
+          <div class="terminal" id="pg-terminal">
+            <div class="terminal-line dim">FFmpeg Studio — browser-native WASM runtime</div>
+            <div class="terminal-line dim">Type a command above or pick a snippet.</div>
+          </div>
+
+          <!-- Output files -->
+          <div class="pg-outputs" id="pg-outputs"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TAB: VISUAL EDITOR ─────────────────────────────────── -->
+    <section class="tab-panel" id="tab-editor">
+      <div class="section-header">
+        <h1>Visual Editor</h1>
+        <p>Build complex FFmpeg pipelines with a node-like interface.</p>
+      </div>
+
+      <div class="editor-layout">
+        <!-- Tools sidebar -->
+        <aside class="editor-tools">
+          <h3>Operations</h3>
+          <div class="tool-group">
+            <span class="tool-group-label">Input / Output</span>
+            <button class="tool-btn" data-op="input">📂 Input File</button>
+            <button class="tool-btn" data-op="output">💾 Output File</button>
+          </div>
+          <div class="tool-group">
+            <span class="tool-group-label">Video</span>
+            <button class="tool-btn" data-op="scale">⤡ Scale / Resize</button>
+            <button class="tool-btn" data-op="trim">✂ Trim</button>
+            <button class="tool-btn" data-op="fps">🎞 FPS Change</button>
+            <button class="tool-btn" data-op="rotate">↺ Rotate</button>
+            <button class="tool-btn" data-op="crop">▣ Crop</button>
+            <button class="tool-btn" data-op="vcodec">▷ Video Codec</button>
+          </div>
+          <div class="tool-group">
+            <span class="tool-group-label">Audio</span>
+            <button class="tool-btn" data-op="volume">🔊 Volume</button>
+            <button class="tool-btn" data-op="acodec">♫ Audio Codec</button>
+            <button class="tool-btn" data-op="mute">🔇 Strip Audio</button>
+          </div>
+          <div class="tool-group">
+            <span class="tool-group-label">Filters</span>
+            <button class="tool-btn" data-op="blur">◎ Blur</button>
+            <button class="tool-btn" data-op="brightness">☀ Brightness</button>
+            <button class="tool-btn" data-op="vflip">↕ V-Flip</button>
+            <button class="tool-btn" data-op="hflip">↔ H-Flip</button>
+            <button class="tool-btn" data-op="grayscale">⬛ Grayscale</button>
+            <button class="tool-btn" data-op="subtitle">CC Burn Subtitles</button>
+          </div>
+        </aside>
+
+        <!-- Pipeline canvas -->
+        <div class="pipeline-canvas" id="pipeline-canvas">
+          <div class="canvas-hint" id="canvas-hint">← Click operations to add them to the pipeline</div>
+          <div class="pipeline-nodes" id="pipeline-nodes"></div>
+        </div>
+
+        <!-- Command preview sidebar -->
+        <aside class="editor-preview">
+          <h3>Generated Command</h3>
+          <div class="editor-cmd-box" id="editor-cmd-box">
+            <code id="editor-cmd-code">ffmpeg …</code>
+          </div>
+          <div class="editor-file-row">
+            <label>Input file</label>
+            <div class="input-row">
+              <input type="text" id="editor-input-file" class="code-input" placeholder="input.mp4" readonly/>
+              <label class="icon-btn browse-btn" for="editor-file-input">📂</label>
+              <input type="file" id="editor-file-input" hidden accept="video/*,audio/*,image/*"/>
+            </div>
+          </div>
+          <div class="editor-file-row">
+            <label>Output file</label>
+            <input type="text" id="editor-output-file" class="code-input" placeholder="output.mp4"/>
+          </div>
+          <button class="run-btn" id="editor-run-btn" disabled>▶ Run Pipeline</button>
+          <div class="progress-bar-wrap" id="editor-progress-wrap" style="display:none">
+            <div class="progress-bar" id="editor-progress-bar"></div>
+            <span class="progress-pct" id="editor-progress-pct">0%</span>
+          </div>
+          <div class="log-box" id="editor-log" style="margin-top:1rem;max-height:200px"></div>
+          <div class="output-preview" id="editor-output-preview"></div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ── TAB: CODE MODE ─────────────────────────────────────── -->
+    <section class="tab-panel" id="tab-code">
+      <div class="section-header">
+        <h1>Code Mode</h1>
+        <p>Write FFmpeg scripts in JavaScript or use the simplified fluent API.</p>
+      </div>
+
+      <div class="code-layout">
+        <!-- API Reference -->
+        <aside class="api-ref">
+          <h3>API Reference</h3>
+          <div class="api-toggle">
+            <button class="api-tab-btn active" data-api="fluent">Fluent API</button>
+            <button class="api-tab-btn" data-api="raw">Raw WASM</button>
+          </div>
+          <div class="api-docs" id="api-docs">
+            <!-- Populated by JS -->
+          </div>
+        </aside>
+
+        <!-- Code Editor -->
+        <div class="code-editor-wrap">
+          <div class="code-toolbar">
+            <span class="file-lang">JavaScript</span>
+            <div class="code-actions">
+              <button class="icon-btn" id="code-format-btn" title="Format">⟳ Format</button>
+              <button class="icon-btn" id="code-examples-btn" title="Load example">★ Examples</button>
+              <button class="run-btn small" id="code-run-btn">▶ Run</button>
+            </div>
+          </div>
+          <div class="editor-container">
+            <div class="line-numbers" id="line-numbers"></div>
+            <textarea id="code-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+          </div>
+        </div>
+
+        <!-- Code Output -->
+        <div class="code-output-panel">
+          <div class="output-toolbar">
+            <span>Output</span>
+            <button class="icon-btn" id="code-clear-out">✕ Clear</button>
+          </div>
+          <div class="code-terminal" id="code-terminal"></div>
+          <div class="output-preview" id="code-output-preview"></div>
+        </div>
+      </div>
+
+      <!-- Example Modal -->
+      <div class="modal" id="examples-modal" style="display:none">
+        <div class="modal-box">
+          <div class="modal-header">
+            <h3>Code Examples</h3>
+            <button class="icon-btn" id="close-modal">✕</button>
+          </div>
+          <div class="examples-list" id="examples-list"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast notifications -->
+  <div id="toast-container"></div>
+
+  <script src="ffmpeg/ffmpeg.js"></script>
+  <script src="ffmpeg/util.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
