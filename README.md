@@ -20,10 +20,3 @@ The app is divided into four main operation modes:
 ## 🚀 How to Run Locally
 
 Due to the nature of WebAssembly (WASM) and SharedArrayBuffer features, this project **cannot** be opened directly by double-clicking `index.html`. It requires a local server and specific security headers (`Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy`)[cite: 1].
-
-### Steps:
-
-1. Clone the repository:
-   ```bash
-   git clone [https://github.com/YOUR-USERNAME/ffmpeg-studio.git](https://github.com/YOUR-USERNAME/ffmpeg-studio.git)
-   cd ffmpeg-studio
